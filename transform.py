@@ -78,7 +78,7 @@ def transform_in_postgres(df, *args, **kwargs) -> DataFrame:
 
         mergedUpdate.drop(columns={"_merge"},axis=1,inplace=True)
 
-        return mergedUpdate
+        return [mergedUpdate,mergedInsert]
 
 
 @test
