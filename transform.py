@@ -13,78 +13,47 @@ if 'test' not in globals():
 
 
 @transformer
-def transform_in_postgres(df, *args, **kwargs) -> DataFrame:
+def transform_in_postgres(df,data, *args, **kwargs) -> DataFrame:
     """
     Performs a transformation in Postgres
     """
-    dataFrame=df[0]
 
-    #columns to exclude during merge
+    dataFrame=df[0]
     params=df[1]
 
-    config_path = path.join(get_repo_path(), 'io_config.yaml')
-    config_profile = 'default'
-
-    # Specify your SQL transformation query
-    query = 'SELECT * FROM employees2'
-
-    # Specify table to sample data from. Use to visualize changes to table.
-    sample_table = 'employees2'
-    sample_schema = 'public'
-    sample_size = 10_000
-
-    with Postgres.with_config(ConfigFileLoader(config_path, config_profile)) as loader:
-        # Write queries to transform your dataset with
-        loader.execute(query)
-        loader.commit() # Permanently apply database changes
-        data = loader.sample(sample_schema, sample_table, sample_size)
-
-        # data['id'] = data['id'].astype(int)
-
-        # data['code'] = data['code'].astype('int64')
-        data.rename(columns={'employee_id':'id'},inplace=True)
-        dataFrame.rename(columns={'employee_id':'id'},inplace=True)
-
-        merged = pd.merge(dataFrame, data, on=['id'], how='outer', indicator=True)
-        #mergedLeft = pd.merge(data, df, on=['code'], how='left')
+    
+    # Insert the column name you want to merge by
+    mergeOn='id'
 
 
+    ### If the column you want to merge by is an int
+    dataFrame[mergeOn] = dataFrame[mergeOn].astype('int64')
+    data[mergeOn] = data[mergeOn].astype('int64')
 
+    ### If the column you want to merge by is a string:
+    # dataFrame[mergeOn] = dataFrame[mergeOn].astype('str')
+    # data[mergeOn] = data[mergeOn].astype('str')
 
-       # print(mergedInner)
-        # print(mergedInsert)
-        # print(mergedUpdate)
-        # merged['id'] = merged['id'].astype(int)
-        merged['id'] = pd.to_numeric(merged['id'], errors='coerce')
-        merged['id'].replace([np.nan, np.inf, -np.inf], 0, inplace=True)
-        # print(merged.dtypes)
-        # return merged
-        # return merged
-        #merged.replace([id], 0, inplace=True)
-        merged['id'] = merged['id'].astype('int64')
-        merged['id'].replace(0, '', inplace=True)
-        #print(merged.dtypes)
+    merged = pd.merge(dataFrame, data, on=['id'], how='outer', indicator=True)
 
-        # Drop both 'first_name_y' and 'last_name_y' in one step
-        colnamesOriginal=dataFrame.columns.difference(params)
-        colnamesToDrop=[col+"_y" for col in colnamesOriginal]
-        merged = merged.drop(colnamesToDrop, axis=1)
+  
+    colnamesOriginal=dataFrame.columns.difference(params)
+    colnamesToDrop=[col+"_y" for col in colnamesOriginal]
+    merged = merged.drop(colnamesToDrop, axis=1)
 
-        
-        for column in colnamesOriginal:
-            merged = merged.rename(columns={f'{column}_x': f'{column}'})
+    
+    for column in colnamesOriginal:
+        merged = merged.rename(columns={f'{column}_x': f'{column}'})
 
+    mergedInsert = merged[merged['_merge'] != 'both']
+    mergedUpdate = merged[merged['_merge'] == 'both']
 
-        #create two separate tables 
-        mergedInsert = merged[merged['_merge'] != 'both']
-        mergedUpdate = merged[merged['_merge'] == 'both']
+    mergedInsert.drop(columns=params,axis=1,inplace=True)
+    mergedInsert.drop(columns={"_merge"},axis=1,inplace=True)
 
-        mergedInsert.drop(columns=params,axis=1,inplace=True)
-        mergedInsert.drop(columns={"_merge"},axis=1,inplace=True)
+    mergedUpdate.drop(columns={"_merge"},axis=1,inplace=True)
 
-        mergedUpdate.drop(columns={"_merge"},axis=1,inplace=True)
-
-        return [mergedUpdate,mergedInsert]
+    return [mergedUpdate,mergedInsert]
 
 
 @test
