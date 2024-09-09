@@ -17,16 +17,22 @@ def transform_in_postgres(df, *args, **kwargs) -> DataFrame:
     """
     Performs a transformation in Postgres
     """
+    dataFrame=df[0]
+
+    #columns to exclude during merge
+    params=df[1]
+
     config_path = path.join(get_repo_path(), 'io_config.yaml')
-    config_profile = 'promotion'
+    config_profile = 'default'
 
     # Specify your SQL transformation query
-    query = 'SELECT * FROM customer_group'
+    query = 'SELECT * FROM employees2'
 
     # Specify table to sample data from. Use to visualize changes to table.
-    sample_table = 'customer_group'
+    sample_table = 'employees2'
     sample_schema = 'public'
     sample_size = 10_000
+
     with Postgres.with_config(ConfigFileLoader(config_path, config_profile)) as loader:
         # Write queries to transform your dataset with
         loader.execute(query)
